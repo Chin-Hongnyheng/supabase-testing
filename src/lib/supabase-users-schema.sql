@@ -42,7 +42,7 @@ alter table users enable row level security;
 
 drop policy if exists "users read own row" on users;
 create policy "users read own row" on users
-  for select using (auth.uid()::text = id);
+  for select using ((auth.jwt()->>'sub') = id);
 
 -- ---- progress ----------------------------------------------
 -- One record per (user_id × lesson_id).

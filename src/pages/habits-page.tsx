@@ -9,6 +9,8 @@ import {
 } from "@/lib/api/habits"
 import { createClerkSupabaseClient } from "@/lib/supabase"
 import type { HabitWithTodayLog, CreateHabitInput } from "@/types/habits"
+import { ErrorBoundary } from "@/components/common/error-boundary"
+import { AvatarUpload } from "@/components/common/avatar-upload"
 
 // ─── Icons (inline SVG to avoid extra deps) ──────────────────────────────────
 
@@ -365,6 +367,7 @@ function AddHabitForm({ userId, db, onAdd, onCancel }: AddHabitFormProps) {
   )
 }
 
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function HabitsPage() {
@@ -374,7 +377,7 @@ export function HabitsPage() {
 
   // Memoised Clerk-aware Supabase client — injects Bearer JWT on every request
   const db = useMemo(
-    () => createClerkSupabaseClient(getToken as (opts: { template: string }) => Promise<string | null>),
+    () => createClerkSupabaseClient(getToken as (opts?: { template?: string }) => Promise<string | null>),
     [getToken]
   )
 
@@ -465,22 +468,34 @@ export function HabitsPage() {
               Track your daily learning rituals
             </p>
           </div>
-          <button
-            id="open-add-habit-btn"
-            onClick={() => setShowForm((v) => !v)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
-          >
-            <PlusIcon />
-            Add Habit
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Avatar upload widget */}
+            {userId && (
+              <AvatarUpload
+                userId={userId}
+                db={db}
+                currentUrl={user?.imageUrl ?? null}
+              />
+            )}
+            <button
+              id="open-add-habit-btn"
+              onClick={() => setShowForm((v) => !v)}
+              className="flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
+            >
+              <PlusIcon />
+              Add Habit
+            </button>
+          </div>
         </div>
 
         {/* Stat bar */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <StatCard label="Total Habits" value={total} />
-          <StatCard label="Done Today" value={`${completedToday}/${total}`} />
-          <StatCard label="Today's Streak" value={streak > 0 ? `🔥 ${streak}` : "—"} />
-        </div>
+        <ErrorBoundary fallbackTitle="Stats unavailable">
+          <div className="grid grid-cols-3 gap-3 mb-8">
+            <StatCard label="Total Habits" value={total} />
+            <StatCard label="Done Today" value={`${completedToday}/${total}`} />
+            <StatCard label="Today's Streak" value={streak > 0 ? `🔥 ${streak}` : "—"} />
+          </div>
+        </ErrorBoundary>
 
         {/* Add form */}
         {showForm && (
@@ -539,20 +554,22 @@ export function HabitsPage() {
         )}
 
         {/* Habit list */}
-        {!loading && habits.length > 0 && (
-          <div className="space-y-3">
-            {habits.map((habit) => (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                toggling={togglingIds.has(habit.id)}
-                deleting={deletingIds.has(habit.id)}
-                onToggle={() => handleToggle(habit)}
-                onDelete={() => handleDelete(habit.id)}
-              />
-            ))}
-          </div>
-        )}
+        <ErrorBoundary fallbackTitle="Could not load habits">
+          {!loading && habits.length > 0 && (
+            <div className="space-y-3">
+              {habits.map((habit) => (
+                <HabitCard
+                  key={habit.id}
+                  habit={habit}
+                  toggling={togglingIds.has(habit.id)}
+                  deleting={deletingIds.has(habit.id)}
+                  onToggle={() => handleToggle(habit)}
+                  onDelete={() => handleDelete(habit.id)}
+                />
+              ))}
+            </div>
+          )}
+        </ErrorBoundary>
       </div>
     </div>
   )

@@ -25,12 +25,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // NOTE: Clerk user IDs are strings (e.g. "user_2abc") — not UUIDs.
 // Therefore RLS policies MUST use `auth.jwt()->>'sub'` not `auth.uid()`.
 export function createClerkSupabaseClient(
-  getToken: (opts: { template: string }) => Promise<string | null>
+  getToken: (opts?: { template?: string }) => Promise<string | null>
 ) {
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       fetch: async (url: RequestInfo | URL, options: RequestInit = {}) => {
-        const clerkToken = await getToken({ template: "supabase" })
+        let clerkToken: string | null = null
+        try {
+          // Native Third-Party Auth: send the standard Clerk session token
+          clerkToken = await getToken()
+        } catch {
+          try {
+            clerkToken = await getToken({ template: "supabase" })
+          } catch {
+            // clerkToken stays null — request will proceed without auth header
+          }
+        }
         const headers = new Headers(options.headers)
         if (clerkToken) {
           headers.set("Authorization", `Bearer ${clerkToken}`)
