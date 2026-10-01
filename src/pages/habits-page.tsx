@@ -11,6 +11,10 @@ import { createClerkSupabaseClient } from "@/lib/supabase"
 import type { HabitWithTodayLog, CreateHabitInput } from "@/types/habits"
 import { ErrorBoundary } from "@/components/common/error-boundary"
 import { AvatarUpload } from "@/components/common/avatar-upload"
+import { enqueueHabit, getQueue, dequeueHabit } from "@/lib/offline-queue"
+
+// ─── Extended type for queued state ───────────────────────────────────────────
+type DisplayHabit = HabitWithTodayLog & { isQueued?: boolean }
 
 // ─── Icons (inline SVG to avoid extra deps) ──────────────────────────────────
 
@@ -135,7 +139,7 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 // ─── Habit card ───────────────────────────────────────────────────────────────
 
 interface HabitCardProps {
-  habit: HabitWithTodayLog
+  habit: DisplayHabit
   toggling: boolean
   deleting: boolean
   onToggle: () => void
@@ -143,12 +147,12 @@ interface HabitCardProps {
 }
 
 function HabitCard({ habit, toggling, deleting, onToggle, onDelete }: HabitCardProps) {
-  const busy = toggling || deleting
+  const busy = toggling || deleting || habit.isQueued
 
   return (
     <div
       className={`bg-card border border-border rounded-lg shadow-sm p-4 flex items-center gap-4 transition-opacity ${
-        busy ? "opacity-60 pointer-events-none" : ""
+        busy && !habit.isQueued ? "opacity-60 pointer-events-none" : ""
       }`}
     >
       {/* Toggle button */}
@@ -161,20 +165,27 @@ function HabitCard({ habit, toggling, deleting, onToggle, onDelete }: HabitCardP
           habit.isCompletedToday
             ? "bg-primary border-primary text-primary-foreground"
             : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
-        }`}
+        } ${habit.isQueued ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         {toggling ? <SpinnerIcon /> : habit.isCompletedToday ? <CheckIcon /> : null}
       </button>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p
-          className={`font-semibold text-foreground truncate ${
-            habit.isCompletedToday ? "line-through text-muted-foreground" : ""
-          }`}
-        >
-          {habit.title}
-        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p
+            className={`font-semibold text-foreground truncate ${
+              habit.isCompletedToday ? "line-through text-muted-foreground" : ""
+            }`}
+          >
+            {habit.title}
+          </p>
+          {habit.isQueued && (
+            <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+              ⏳ Queued
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="bg-accent text-accent-foreground rounded-full text-xs px-2 py-0.5 font-medium">
             {habit.category}
@@ -189,15 +200,17 @@ function HabitCard({ habit, toggling, deleting, onToggle, onDelete }: HabitCardP
       </div>
 
       {/* Delete button */}
-      <button
-        id={`delete-habit-${habit.id}`}
-        aria-label="Delete habit"
-        onClick={onDelete}
-        disabled={busy}
-        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-md hover:bg-destructive/10 cursor-pointer"
-      >
-        {deleting ? <SpinnerIcon /> : <TrashIcon />}
-      </button>
+      {!habit.isQueued && (
+        <button
+          id={`delete-habit-${habit.id}`}
+          aria-label="Delete habit"
+          onClick={onDelete}
+          disabled={busy}
+          className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-md hover:bg-destructive/10 cursor-pointer"
+        >
+          {deleting ? <SpinnerIcon /> : <TrashIcon />}
+        </button>
+      )}
     </div>
   )
 }
@@ -207,7 +220,7 @@ function HabitCard({ habit, toggling, deleting, onToggle, onDelete }: HabitCardP
 interface AddHabitFormProps {
   userId: string | null | undefined
   db: SupabaseClient
-  onAdd: (habit: HabitWithTodayLog) => void
+  onAdd: (habit: DisplayHabit) => void
   onCancel: () => void
 }
 
@@ -227,6 +240,29 @@ function AddHabitForm({ userId, db, onAdd, onCancel }: AddHabitFormProps) {
       setValidationError("Habit title is required.")
       return
     }
+
+    if (!navigator.onLine) {
+      const queued = enqueueHabit({ title: form.title, category: form.category ?? "Learning" })
+      onAdd({
+        id: Number(queued.id.replace(/\D/g, "").slice(0, 8)) || Date.now(),
+        userId: userId ?? null,
+        title: queued.title,
+        description: form.description ?? null,
+        category: queued.category,
+        frequency: form.frequency ?? "daily",
+        targetCount: form.targetCount ?? 1,
+        unit: form.unit ?? "times",
+        isActive: true,
+        createdAt: queued.queuedAt,
+        updatedAt: queued.queuedAt,
+        todayLog: null,
+        isCompletedToday: false,
+        isQueued: true,
+      })
+      setForm(defaultForm)
+      return
+    }
+
     setSaving(true)
     const created = await createHabit({ ...form, userId: userId ?? null }, db)
     setSaving(false)
@@ -367,7 +403,6 @@ function AddHabitForm({ userId, db, onAdd, onCancel }: AddHabitFormProps) {
   )
 }
 
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function HabitsPage() {
@@ -381,7 +416,7 @@ export function HabitsPage() {
     [getToken]
   )
 
-  const [habits, setHabits] = useState<HabitWithTodayLog[]>([])
+  const [habits, setHabits] = useState<DisplayHabit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -397,11 +432,27 @@ export function HabitsPage() {
     const run = async () => {
       setLoading(true)
       setError(null)
-      // With RLS active, pass the clerk-aware client so Supabase
-      // sees the user's JWT and returns only their own rows.
       const data = await getHabitsWithTodayStatus(userId, db)
       if (!cancelled) {
-        setHabits(data)
+        // Merge queued offline items
+        const queue = getQueue()
+        const queuedDisplay: DisplayHabit[] = queue.map((q) => ({
+          id: Number(q.id.replace(/\D/g, "").slice(0, 8)) || Date.now(),
+          userId: userId ?? null,
+          title: q.title,
+          description: null,
+          category: q.category,
+          frequency: "daily",
+          targetCount: 1,
+          unit: "times",
+          isActive: true,
+          createdAt: q.queuedAt,
+          updatedAt: q.queuedAt,
+          todayLog: null,
+          isCompletedToday: false,
+          isQueued: true,
+        }))
+        setHabits([...queuedDisplay, ...data])
         setLoading(false)
       }
     }
@@ -411,7 +462,36 @@ export function HabitsPage() {
     }
   }, [isLoaded, userId, fetchTick, db])
 
-  async function handleToggle(habit: HabitWithTodayLog) {
+  // Flush queued habits when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const queue = getQueue()
+      if (queue.length === 0) return
+      for (const item of queue) {
+        const created = await createHabit(
+          {
+            title: item.title,
+            category: item.category,
+            frequency: "daily",
+            targetCount: 1,
+            unit: "times",
+            userId: userId ?? null,
+          },
+          db
+        )
+        if (created) {
+          dequeueHabit(item.id)
+        }
+      }
+      retry()
+    }
+
+    window.addEventListener("online", handleOnline)
+    return () => window.removeEventListener("online", handleOnline)
+  }, [db, userId, retry])
+
+  async function handleToggle(habit: DisplayHabit) {
+    if (habit.isQueued) return
     setTogglingIds((prev) => new Set(prev).add(habit.id))
     const result = await logHabit({
       habitId: habit.id,
@@ -447,28 +527,28 @@ export function HabitsPage() {
     }
   }
 
-  function handleAdd(newHabit: HabitWithTodayLog) {
-    setHabits((prev) => [...prev, newHabit])
+  function handleAdd(newHabit: DisplayHabit) {
+    setHabits((prev) => [newHabit, ...prev])
     setShowForm(false)
   }
 
   // Stats
   const total = habits.length
   const completedToday = habits.filter((h) => h.isCompletedToday).length
-  const streak = completedToday > 0 ? 1 : 0 // Simple: 1 if any completed today
+  const streak = completedToday > 0 ? 1 : 0
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-10 sm:px-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-foreground font-sans">My Habits</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Track your daily learning rituals
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             {/* Avatar upload widget */}
             {userId && (
               <AvatarUpload
@@ -490,7 +570,7 @@ export function HabitsPage() {
 
         {/* Stat bar */}
         <ErrorBoundary fallbackTitle="Stats unavailable">
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
             <StatCard label="Total Habits" value={total} />
             <StatCard label="Done Today" value={`${completedToday}/${total}`} />
             <StatCard label="Today's Streak" value={streak > 0 ? `🔥 ${streak}` : "—"} />

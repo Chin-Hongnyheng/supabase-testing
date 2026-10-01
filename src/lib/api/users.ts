@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { supabase } from "@/lib/supabase"
 import type { Lesson, Progress, Enrollment, EnrolledCourse, Notification } from "@/types/users"
 
@@ -98,8 +99,8 @@ export async function getLessonBySlug(slug: string): Promise<Lesson | null> {
  * Returns all progress records for the authenticated user in a given course.
  */
 export async function getMyProgressForCourse(
-  courseId: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  authToken: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _courseId: number,
+  _authToken: string,
 ): Promise<Progress[]> {
   throw new Error(
     "getMyProgressForCourse: not yet implemented — wire to the Express backend endpoint."
@@ -111,7 +112,7 @@ export async function getMyProgressForCourse(
  * Returns the authenticated user's enrolled courses with progress summaries.
  */
 export async function getMyEnrollments(
-  authToken: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _authToken: string,
 ): Promise<EnrolledCourse[]> {
   throw new Error(
     "getMyEnrollments: not yet implemented — wire to the Express backend endpoint."
@@ -123,7 +124,7 @@ export async function getMyEnrollments(
  * Returns the authenticated user's notifications, newest first.
  */
 export async function getMyNotifications(
-  authToken: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _authToken: string,
 ): Promise<Notification[]> {
   throw new Error(
     "getMyNotifications: not yet implemented — wire to the Express backend endpoint."
@@ -135,8 +136,8 @@ export async function getMyNotifications(
  * Enrols the authenticated user in the given course.
  */
 export async function enrollInCourse(
-  courseId: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  authToken: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _courseId: number,
+  _authToken: string,
 ): Promise<Enrollment> {
   throw new Error(
     "enrollInCourse: not yet implemented — wire to the Express backend endpoint."
@@ -148,11 +149,11 @@ export async function enrollInCourse(
  * Upserts the learner's progress for a lesson (completed flag + resume timestamp).
  */
 export async function upsertProgress(
-  lessonId: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  courseId: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  completed: boolean, // eslint-disable-line @typescript-eslint/no-unused-vars
-  resumeTimestamp: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  authToken: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _lessonId: number,
+  _courseId: number,
+  _completed: boolean,
+  _resumeTimestamp: number,
+  _authToken: string,
 ): Promise<Progress> {
   throw new Error(
     "upsertProgress: not yet implemented — wire to the Express backend endpoint."

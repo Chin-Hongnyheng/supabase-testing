@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Bell, Menu, Moon, Sun, X } from "lucide-react"
+import { Bell, Menu, Moon, Sun, X, Share2, Check } from "lucide-react"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/components/theme-provider"
@@ -10,10 +10,34 @@ export function NavigationSection() {
   const location = useLocation()
   const { theme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Vibe Learn",
+          text: "Check out Vibe Learn habits & courses!",
+          url: window.location.href,
+        })
+      } catch {
+        // Share cancelled
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch {
+        // Clipboard write failed
+      }
+    }
+  }
 
   const isCoursesActive =
     location.pathname.startsWith("/courses") || location.pathname.startsWith("/course")
   const isMyLearningActive = location.pathname.startsWith("/my-learning")
+  const isHabitsActive = location.pathname.startsWith("/habits")
 
   return (
     <header className="sticky top-0 z-50 h-[72px] border-b border-neutral-200 bg-white/90 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/90">
@@ -65,11 +89,38 @@ export function NavigationSection() {
                 <span className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-full bg-primary-500" />
               )}
             </Link>
+
+            <Link
+              to="/habits"
+              className={cn(
+                "relative flex h-full items-center text-sm font-medium transition-colors hover:text-neutral-900 dark:hover:text-white",
+                isHabitsActive
+                  ? "font-semibold text-neutral-900 dark:text-white"
+                  : "text-neutral-500 dark:text-neutral-400"
+              )}
+            >
+              Habits
+              {isHabitsActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-full bg-primary-500" />
+              )}
+            </Link>
           </nav>
         </div>
 
         {/* Right: Notifications & Theme Toggle & User Avatar & Mobile Menu Toggle */}
         <div className="flex items-center gap-3 sm:gap-4">
+          {/* Share Button */}
+          <button
+            type="button"
+            id="share-btn"
+            aria-label="Share page"
+            onClick={handleShare}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
+            title={copied ? "Copied link!" : "Share"}
+          >
+            {copied ? <Check className="h-5 w-5 text-emerald-500" /> : <Share2 className="h-5 w-5" />}
+          </button>
+
           {/* Theme Toggle Button */}
           <button
             type="button"

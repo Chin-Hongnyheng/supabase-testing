@@ -1,7 +1,1 @@
-https://github.com/Chin-Hongnyheng/supabase-testing.git 
-
-clone the repo and run with url "http://localhost:5175/habits".
-
-All the screenshot in folder "submission".
-
-Client-side validation is UX because it gives the user instant feedback before any network call is made; the storage policy is the actual security because it runs on Supabase's server and enforces the rules even if someone bypasses your browser entirely with a raw API call.
+https://github.com/Chin-Hongnyheng/supabase-testing.git
