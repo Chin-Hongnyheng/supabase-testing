@@ -32,7 +32,14 @@ export function CourseCard({ course, progress = 0, onClick, className }: CourseC
     >
       <div className="flex items-start justify-between">
         <div className="size-20 overflow-hidden rounded-2xl bg-neutral-900">
-          <img src={course.imgUrl} alt={course.title} className="size-full object-cover" />
+          <img
+            src={course.imgUrl}
+            alt={course.title}
+            loading="lazy"
+            width={80}
+            height={80}
+            className="size-full object-cover"
+          />
         </div>
         <button
           type="button"

@@ -1,1 +1,3 @@
 https://github.com/Chin-Hongnyheng/supabase-testing.git
+
+https://supabase-testing-nu.vercel.app
