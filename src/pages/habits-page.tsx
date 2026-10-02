@@ -426,6 +426,28 @@ export function HabitsPage() {
 
   const retry = useCallback(() => setFetchTick((t) => t + 1), [])
 
+  // ── Auto-sync Clerk user → Supabase users table ───────────────────────────
+  // Runs once when the user is first loaded. Without this, the foreign-key
+  // constraint on habits.user_id would reject inserts for any new user whose
+  // record doesn't yet exist in the users table.
+  useEffect(() => {
+    if (!isLoaded || !user) return
+    const sync = async () => {
+      await db.from("users").upsert(
+        {
+          id: user.id,
+          email: user.primaryEmailAddress?.emailAddress ?? "",
+          first_name: user.firstName ?? "",
+          last_name: user.lastName ?? "",
+          avatar_url: user.imageUrl ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      )
+    }
+    void sync()
+  }, [isLoaded, user, db])
+
   useEffect(() => {
     if (!isLoaded) return
     let cancelled = false
